@@ -1,0 +1,133 @@
+--- /root/.claude/uploads/cfed932a-0a38-58cd-9147-879e361ac489/7efdb15d-server.js	2026-10-18 14:03:48.731617195 +0000
++++ sehatwaadi-hub-patch/hub/server.js	2026-10-19 12:32:54.497879252 +0000
+@@ -129,11 +129,41 @@
+     );
+ }
+ 
++// How the Hub decides who may be offered an order.
++//   MATCH_MODE=learned (default): no stock files. A pharmacy qualifies when it is online (fresh heartbeat), nearby, and has not
++//     said "out of stock" for any item in the cart (pharmacy_item_blocks, filled by the companion app's release action).
++//   MATCH_MODE=inventory: the old behaviour, which needs global_inventory rows from the POS sync.
++const MATCH_MODE = process.env.MATCH_MODE === 'inventory' ? 'inventory' : 'learned';
++
+ async function findCandidates(lat, lng, radiusKm, lines) {
+     const radiusMeters = (radiusKm > 0 ? radiusKm : 5) * 1000;
+     const names = lines.map((l) => l.name.toLowerCase());
+     const qtys = lines.map((l) => l.quantity);
+ 
++    if (MATCH_MODE === 'learned') {
++        const result = await pool.query(
++            `
++            SELECT
++                p.id AS pharmacy_id,
++                p.name AS pharmacy_name,
++                ST_Distance(p.geog, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) AS distance_meters
++            FROM network_pharmacies p
++            WHERE
++                p.is_online = true
++                AND p.last_heartbeat > NOW() - ($5::int * INTERVAL '1 second')
++                AND p.geog IS NOT NULL
++                AND ST_DWithin(p.geog, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)
++                AND NOT EXISTS (
++                    SELECT 1 FROM pharmacy_item_blocks b
++                    WHERE b.pharmacy_id = p.id AND b.blocked_until > NOW() AND b.item_key = ANY($4::text[])
++                )
++            ORDER BY distance_meters ASC
++            `,
++            [lng, lat, radiusMeters, names, HEARTBEAT_FRESH_SECONDS]
++        );
++        return result.rows;
++    }
++
+     const result = await pool.query(
+         `
+         SELECT
+@@ -260,6 +290,7 @@
+ // ========================================================
+ const CASCADE_TIMEOUT_MS = Number(process.env.CASCADE_TIMEOUT_SECONDS || 60) * 1000;
+ const CASCADE_RX_TIMEOUT_MS = Number(process.env.CASCADE_RX_TIMEOUT_SECONDS || 90) * 1000;
++let companionModule;   // assigned near the bottom, after the delivery module exists
+ const activeCascadeTimers = new Map();
+ const orderDeadlines = new Map();
+ 
+@@ -321,7 +352,12 @@
+     if (sent.rowCount === 0) return;
+ 
+     const timeoutMs = sent.rows[0].rx_status !== 'NOT_REQUIRED' ? CASCADE_RX_TIMEOUT_MS : CASCADE_TIMEOUT_MS;
+-    orderDeadlines.set(orderId, Date.now() + timeoutMs);
++    // Persist the deadline BEFORE telling the pharmacy, so the app's first fetch already sees it, and so a Hub restart
++    // cannot strand the order (the sweeper in companionRoutes.js reads it).
++    await pool.query(
++        `UPDATE orders SET offer_deadline = $1, picking_started_at = NULL, extension_used = false WHERE id = $2`,
++        [new Date(Date.now() + timeoutMs), orderId]
++    );
+ 
+     const payload = buildOrderPayload(order, sent.rows[0].rx_status, timeoutMs / 1000);
+     io.to(`pharmacy_${pharmacyId}`).emit('new_order', payload);
+@@ -331,20 +367,28 @@
+     }
+     console.log(`[CASCADE] Order ${orderId} sent to pharmacy ${pharmacyId} (candidate ${index + 1}/${candidates.length}).`);
+ 
++    armOfferTimer(orderId, pharmacyId, timeoutMs);
++}
++
++// (Re)arms the in-memory timeout for the pharmacy that currently holds the order. Called when an order is offered and
++// again when the chemist opens it (the longer picking window) or asks for extra time.
++function armOfferTimer(orderId, pharmacyId, timeoutMs) {
+     if (activeCascadeTimers.has(orderId)) clearTimeout(activeCascadeTimers.get(orderId));
++    orderDeadlines.set(orderId, Date.now() + timeoutMs);
+ 
+     const timer = setTimeout(async () => {
+         activeCascadeTimers.delete(orderId);
+         orderDeadlines.delete(orderId);
+         try {
+             const advanced = await pool.query(
+-                `UPDATE orders SET cascade_index = cascade_index + 1, updated_at = NOW()
++                `UPDATE orders SET cascade_index = cascade_index + 1, offer_deadline = NULL, updated_at = NOW()
+                  WHERE id = $1 AND status = 'SENT_TO_PHARMACY' AND current_pharmacy_id = $2
+                  RETURNING id`,
+                 [orderId, pharmacyId]
+             );
+             if (advanced.rowCount === 0) return;
+             console.log(`[CASCADE] Pharmacy ${pharmacyId} timed out on order ${orderId}. Advancing.`);
++            await companionModule.onTimeout(orderId, pharmacyId);
+             await sendToNextCandidate(orderId);
+         } catch (err) {
+             console.error(`[CASCADE] Timeout handler failed for order ${orderId}:`, err.message);
+@@ -446,7 +490,7 @@
+             [resolvedId]
+         );
+         const orders = pending.rows.map((o) => {
+-            const deadline = orderDeadlines.get(o.id);
++            const deadline = o.offer_deadline ? new Date(o.offer_deadline).getTime() : orderDeadlines.get(o.id);
+             const remaining = deadline ? Math.max(1, Math.floor((deadline - Date.now()) / 1000)) : 45;
+             return buildOrderPayload(o, o.rx_status, remaining, false);
+         });
+@@ -660,7 +704,7 @@
+                 [resolvedId]
+             );
+             for (const o of pending.rows) {
+-                const deadline = orderDeadlines.get(o.id);
++                const deadline = o.offer_deadline ? new Date(o.offer_deadline).getTime() : orderDeadlines.get(o.id);
+                 const remaining = deadline ? Math.floor((deadline - Date.now()) / 1000) : 45;
+                 if (remaining > 0) socket.emit('new_order', buildOrderPayload(o, o.rx_status, remaining));
+             }
+@@ -689,6 +733,18 @@
+ app.use('/api/delivery', deliveryModule.router);
+ deliveryModule.startWorker();
+ 
++// ========================================================
++// COMPANION (chemist PC app): heartbeat, tick-to-pick, release with missing items, dispatch, shelf, settlements.
++// Needs neon/04_companion.sql. Declared as `const` after the cascade functions, which call companionModule.onTimeout lazily.
++// ========================================================
++const { createCompanionModule } = require('./routes/companionRoutes');
++companionModule = createCompanionModule({
++    pool, dpool: deliveryPool || pool, authenticatePharmacy, deliveryModule, io,
++    clearCascadeTimer, armOfferTimer, sendToNextCandidate, buildOrderPayload, toLines,
++});
++app.use('/api/companion', companionModule.router);
++companionModule.startSweeper();
++
+ const PORT = process.env.PORT || 8080;
+ httpServer.listen(PORT, () => {
+     console.log(`SehatWaadi Cloud Hub active on http://localhost:${PORT}`);

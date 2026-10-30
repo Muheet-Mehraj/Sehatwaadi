@@ -1,0 +1,8 @@
+{
+  "appId": "com.sehatwaadi.rider",
+  "appName": "SehatWaadi Partner",
+  "webDir": "dist",
+  "android": {
+    "useLegacyBridge": true
+  }
+}

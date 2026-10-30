@@ -1,0 +1,99 @@
+/* ===== SehatWaadi catalog: dual-pane home + product card =====
+   Layout: [ sticky category rail | scroll-spied product sections ]. CSS only: flex/grid, scroll-snap, content-visibility. */
+
+.swd-app { --topbar-h: 80px; min-height: 100vh; background: var(--bg); }
+
+/* ---- fixed top bar ---- */
+.swd-top { position: fixed; top: var(--offline-h, 0px); left: 0; right: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
+.swd-top-in { max-width: 1180px; height: 80px; margin: 0 auto; padding: 0 12px; display: grid; align-items: center; gap: 4px 10px;
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "logo loc actions" "search search search"; }
+.swd-logo { grid-area: logo; display: flex; align-items: center; gap: 8px; }
+.swd-mark { width: 32px; height: 32px; border-radius: 9px; background: var(--green); color: #fff; font-weight: 800; font-size: 1.3rem; display: grid; place-items: center; }
+.swd-word { display: none; font-weight: 800; font-size: 1.3rem; color: var(--green); letter-spacing: -.02em; }
+.swd-loc { grid-area: loc; min-width: 0; }
+.swd-search { grid-area: search; min-width: 0; }
+.swd-search .sw-search { flex: none; }
+.swd-search .sw-search input { padding: 9px 36px 9px 40px; }
+.swd-actions { grid-area: actions; }
+.swd-spacer { height: calc(var(--topbar-h) + var(--offline-h, 0px)); }
+
+/* ---- dual pane ---- */
+.swd-body { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 85px 1fr; align-items: start; }
+.swd-side { position: sticky; top: calc(var(--topbar-h) + var(--offline-h, 0px)); height: calc(100vh - var(--topbar-h) - var(--offline-h, 0px)); height: calc(100dvh - var(--topbar-h) - var(--offline-h, 0px));
+  overflow-y: auto; background: #fff; border-right: 1px solid var(--line); scrollbar-width: none; overscroll-behavior: contain; }
+.swd-side::-webkit-scrollbar { display: none; }
+.swd-cat { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 10px 4px; text-align: center; font-size: .68rem; font-weight: 600; line-height: 1.2; color: #444; }
+.swd-cat.on { background: var(--green-bg); color: var(--green); font-weight: 800; }
+.swd-cat.on::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; background: var(--green); }
+.swd-tile { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 1.5rem; background: var(--tile, #F1F5F9); }
+.swd-main { min-width: 0; padding: 10px 10px 0; }
+
+@media (min-width: 768px) {
+  .swd-body { grid-template-columns: 240px 1fr; }
+  .swd-main { padding: 14px 18px 0; }
+  .swd-cat { flex-direction: row; justify-content: flex-start; gap: 12px; padding: 10px 14px; text-align: left; font-size: .86rem; }
+  .swd-top-in { grid-template-columns: auto minmax(150px, 240px) minmax(0, 1fr) auto; grid-template-areas: "logo loc search actions"; gap: 0 16px; }
+  .swd-word { display: inline; }
+}
+
+/* ---- promo banners + quick filters: native scroll snapping ---- */
+.swd-snap { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; }
+.swd-snap::-webkit-scrollbar { display: none; }
+.swd-banner { flex: 0 0 88%; scroll-snap-align: start; min-height: 104px; border-radius: 16px; padding: 16px; color: #fff; text-align: left; display: flex; flex-direction: column; justify-content: flex-end; }
+.swd-banner b { font-size: 1rem; line-height: 1.25; }
+.swd-banner small { opacity: .92; font-size: .8rem; margin: 2px 0 10px; }
+.swd-banner span { align-self: flex-start; background: #fff; color: var(--ink); font-weight: 700; font-size: .72rem; padding: 6px 12px; border-radius: 8px; }
+.swd-banner--green { background: linear-gradient(135deg, #0C831F, #2FA84F); }
+.swd-banner--orange { background: linear-gradient(135deg, #D9480F, #F2813C); }
+.swd-banner--blue { background: linear-gradient(135deg, #3B5BDB, #6C8CFF); }
+@media (min-width: 768px) { .swd-banner { flex-basis: 46%; } }
+
+.swd-pills { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0 4px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.swd-pills::-webkit-scrollbar { display: none; }
+.swd-pill { flex: none; scroll-snap-align: start; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: .76rem; font-weight: 700; }
+.swd-pill.on { background: var(--green); border-color: var(--green); color: #fff; }
+
+/* ---- sections + grid ---- */
+.swd-section { scroll-margin-top: calc(var(--topbar-h) + var(--offline-h, 0px) + 8px); padding-top: 6px; content-visibility: auto; contain-intrinsic-size: auto 640px; }
+.swd-sec-title { display: flex; align-items: center; gap: 8px; margin: 16px 0 10px; font-size: .95rem; font-weight: 800; color: var(--ink); text-align: left; }
+.swd-count { font-size: .7rem; font-weight: 700; color: var(--muted); background: #EEF0F3; border-radius: 999px; padding: 2px 8px; }
+.swd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+@media (min-width: 768px) { .swd-grid { grid-template-columns: repeat(auto-fill, minmax(156px, 1fr)); gap: 12px; } }
+.swd-skel { height: 214px; border-radius: 14px; background: linear-gradient(90deg, #ECECEC, #F6F6F6, #ECECEC); background-size: 200% 100%; animation: swd-shimmer 1.2s linear infinite; }
+@keyframes swd-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.swd-empty { text-align: center; padding: 40px 16px; color: var(--muted); }
+.swd-hint { font-size: .78rem; margin-top: 8px; }
+.swd-retry { margin-top: 12px; background: var(--green); color: #fff; font-weight: 800; padding: 10px 22px; border-radius: 10px; }
+
+/* ---- live order strip ---- */
+.swd-track { display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 10px; padding: 12px 14px; text-align: left; background: #fff; border: 1.5px solid var(--green); border-radius: 14px; }
+.swd-track-icon { font-size: 1.5rem; }
+.swd-track-text { display: flex; flex-direction: column; min-width: 0; }
+.swd-track-text b { font-size: .88rem; }
+.swd-track-text small { font-size: .74rem; color: var(--muted); }
+.swd-track-go { margin-left: auto; color: var(--green); font-weight: 800; font-size: .8rem; white-space: nowrap; }
+
+/* ---- product card ---- */
+.swp-card { display: flex; flex-direction: column; min-width: 0; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 14px; contain: content; }
+.swp-thumb { position: relative; aspect-ratio: 1 / 1; width: 100%; border-radius: 10px; background: linear-gradient(135deg, #F6F8FB, #EAF0F6); display: grid; place-items: center; overflow: hidden; }
+.swp-thumb--cart { width: 46px; flex: none; border-radius: 8px; }
+.swp-img { width: 100%; height: 100%; object-fit: contain; }
+.swp-art { width: 78%; height: 78%; }
+.swp-rx { align-self: flex-start; margin-top: 6px; font-size: .62rem; font-weight: 800; color: var(--rx); background: var(--rx-bg); border: 1px solid #FFD2BD; border-radius: 6px; padding: 1px 6px; }
+.swp-link { display: flex; flex-direction: column; align-items: stretch; width: 100%; text-align: left; }
+.swp-name { display: block; margin-top: 6px; font-size: .8rem; font-weight: 700; line-height: 1.3; min-height: 2.6em; text-align: left; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.swp-cap { display: block; margin-top: 2px; font-size: .68rem; color: var(--muted); text-align: left; }
+.swp-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 6px; margin-top: auto; padding-top: 8px; }
+.swp-prices { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.swp-price { font-weight: 800; font-size: .9rem; }
+.swp-mrp { font-size: .68rem; color: var(--muted); text-decoration: line-through; }
+.swp-off { margin-top: 2px; font-size: .6rem; font-weight: 800; color: #fff; background: #2E9E44; border-radius: 4px; padding: 1px 5px; }
+.swp-foot .sw-add, .swp-foot .sw-step { min-width: 64px; }
+
+/* ---- states ---- */
+.swd-slow { text-align: center; font-size: .78rem; color: var(--muted); margin-top: 10px; }
+
+/* ---- checkout closed while an order is in progress ---- */
+.swp-blocked { background: #fff; border: 1.5px solid var(--green); border-radius: 14px; padding: 14px; text-align: left; }
+.swp-blocked b { display: block; font-size: .95rem; }
+.swp-blocked p { margin: 4px 0 12px; font-size: .84rem; color: #444; }

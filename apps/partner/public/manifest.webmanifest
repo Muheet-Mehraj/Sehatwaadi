@@ -1,0 +1,3 @@
+{ "name": "SehatWaadi Partner", "short_name": "SW Partner", "start_url": "/", "scope": "/", "display": "standalone", "orientation": "portrait",
+  "background_color": "#0b7a5b", "theme_color": "#0b7a5b",
+  "icons": [ { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" } ] }

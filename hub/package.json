@@ -1,0 +1,1 @@
+{"name":"sehatwaadi-hub-patch","private":true,"scripts":{"test":"node --test --test-force-exit test/*.test.js"},"dependencies":{"express":"^5.2.1","firebase-admin":"^14.5.0"},"devDependencies":{"pg":"^8.23.1"}}

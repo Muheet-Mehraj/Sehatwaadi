@@ -1,0 +1,43 @@
+{
+  "name": "sehatwaadi-rider-app",
+  "private": true,
+  "version": "0.4.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 5174",
+    "build": "vite build",
+    "preview": "vite preview --host --port 5174",
+    "test": "vitest run",
+    "test:e2e": "node test/e2e.mjs",
+    "test:all": "vitest run && node test/e2e.mjs",
+    "android:sync": "vite build && cap sync android && node scripts/android-setup.mjs",
+    "android:open": "cap open android",
+    "android:run": "vite build && cap sync android && node scripts/android-setup.mjs && cap run android"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor-community/keep-awake": "^8.0.1",
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/geolocation": "^8.2.4",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/push-notifications": "^8.0.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.3",
+    "@vitejs/plugin-react": "^4.3.1",
+    "express": "^4.19.2",
+    "jsdom": "^25.0.0",
+    "pg": "^8.13.0",
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}

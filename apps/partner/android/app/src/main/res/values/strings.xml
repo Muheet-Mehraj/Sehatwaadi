@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SehatWaadi Rider</string>
+    <string name="title_activity_main">SehatWaadi Rider</string>
+    <string name="package_name">com.sehatwaadi.rider</string>
+    <string name="custom_url_scheme">com.sehatwaadi.rider</string>
+</resources>

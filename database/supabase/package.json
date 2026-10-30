@@ -1,0 +1,14 @@
+{
+  "name": "sehatwaadi-supabase",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "test:offers": "node tests/offers.mjs",
+    "test:push": "node tests/push.mjs",
+    "test:kyc": "node tests/kyc.mjs",
+    "test:settlements": "node tests/settlements.mjs",
+    "test:lifecycle": "node tests/lifecycle.mjs"
+  },
+  "devDependencies": { "pg": "^8.13.0" }
+}
